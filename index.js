@@ -1,7 +1,10 @@
 const express = require('express')
 const morgan = require('morgan')
 const app = express()
+require('dotenv').config()
+const Person = require('./models/person')
 
+/*
 let phonebook = [
     { 
         "id": "1",
@@ -24,7 +27,7 @@ let phonebook = [
         "number": "39-23-6423122"
       }
   ]
-
+*/
 app.use(express.json())
 morgan.token('body', (req) => {
   return JSON.stringify(req.body)
@@ -34,68 +37,102 @@ app.use(express.static('dist'))
 
 
 app.get('/api/persons', (request, response) => {
-    response.json(phonebook)
+  Person.find({}).then(people => {
+    response.json(people)
+  })
 })
   
 app.get('/api/persons/:id', (request, response) => {
-    const id = request.params.id
-    const phone = phonebook.find((phone) => phone.id === id)
-  
-    if (phone) {
-      response.json(phone)
-    } else {
-      response.status(404).end()
-    }
+  Person.findById(request.params.id).then(person => {
+    response.json(person)
+  })
 })
 
 
 app.get('/info', (request, response) => {
-    const count = phonebook.length
-    const time = new Date()
-  
-    response.send(`
-      <p>Phonebook has info for ${count} people</p>
-      <p>${time}</p>
-    `)
-  })
-app.delete('/api/persons/:id', (request, response) => {
-    const id = request.params.id
-    phonebook = phonebook.filter((phone) => phone.id !== id)
-  
-    response.status(204).end()
+  const time = new Date()
+
+  Person.countDocuments({})
+    .then(count => {
+      response.send(`
+        <p>Phonebook has info for ${count} people</p>
+        <p>${time}</p>
+      `)
+    })
+    .catch(error => {
+      console.error(error)
+      response.status(500).send('Error retrieving phonebook info')
+    })
 })
 
-app.post('/api/persons', (request, response) => {
-  console.log('Headers:', request.headers)
-  console.log('Body:', request.body)
 
-  
+app.delete('/api/persons/:id', (request, response, next) => {
+  Person.findByIdAndDelete(request.params.id)
+    .then(result => {
+      response.status(204).end()
+    })
+    .catch(error => next(error))
+})
+
+app.post('/api/persons', (request, response, next) => {
   const body = request.body
-  
+
   if (!body.name || !body.number) {
-    return response.status(400).json({
-      error: 'name or number missing',
-    })
-    }
-  if (phonebook.some(person => person.name === body.name)) {
-    return response.status(400).json({
-      error: 'name must be unique'
-    })
+    return response.status(400).json({ error: 'name or number missing' })
   }
-    
-  const newId = Math.floor(Math.random() * 1000000)
 
-  const newPerson = {
-    id: newId.toString(),  
+  const person = new Person({
     name: body.name,
-    number: body.number
-  }
+    number: body.number,
+  })
 
-  phonebook = phonebook.concat(newPerson)
-
-  response.json(newPerson)
+  person.save().then(savedPerson => {
+    response.json(savedPerson)
+  })
+  .catch(error => next(error))
 })
 
+app.put('/api/persons/:id', (request, response, next) => {
+  const { name, number } = request.body
+
+  Person.findById(request.params.id)
+    .then(person => {
+      if (!person) {
+        return response.status(404).end()
+      }
+
+      person.name = name
+      person.number = number
+
+      return person.save().then((updatedPerson) => {
+        response.json(updatedPerson)
+      })
+    })
+    .catch(error => next(error))
+})
+
+const unknownEndpoint = (request, response) => {
+  response.status(404).send({ error: 'unknown endpoint' })
+}
+
+app.use(unknownEndpoint)
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message)
+
+  if (error.name === 'CastError') {
+    return response.status(400).json({ error: 'malformatted id' })
+  } 
+  if (error.name === 'ValidationError') {
+    return response.status(400).json({error: 'Contact information not valid'})
+  }
+
+  next(error)
+}
+
+// this has to be the last loaded middleware, also all the routes should be registered before this!
+// handler of requests with result to errors
+app.use(errorHandler)
 
 const PORT = 3001
 app.listen(PORT, () => {
