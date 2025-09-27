@@ -6,24 +6,24 @@ const Person = require('./models/person')
 
 /*
 let phonebook = [
-    { 
+    {
         "id": "1",
-        "name": "Arto Hellas", 
+        "name": "Arto Hellas",
         "number": "040-123456"
       },
-      { 
+      {
         "id": "2",
-        "name": "Ada Lovelace", 
+        "name": "Ada Lovelace",
         "number": "39-44-5323523"
       },
-      { 
+      {
         "id": "3",
-        "name": "Dan Abramov", 
+        "name": "Dan Abramov",
         "number": "12-43-234345"
       },
-      { 
+      {
         "id": "4",
-        "name": "Mary Poppendieck", 
+        "name": "Mary Poppendieck",
         "number": "39-23-6423122"
       }
   ]
@@ -41,7 +41,7 @@ app.get('/api/persons', (request, response) => {
     response.json(people)
   })
 })
-  
+
 app.get('/api/persons/:id', (request, response) => {
   Person.findById(request.params.id).then(person => {
     response.json(person)
@@ -69,6 +69,7 @@ app.get('/info', (request, response) => {
 app.delete('/api/persons/:id', (request, response, next) => {
   Person.findByIdAndDelete(request.params.id)
     .then(result => {
+      console.log(result)
       response.status(204).end()
     })
     .catch(error => next(error))
@@ -89,7 +90,7 @@ app.post('/api/persons', (request, response, next) => {
   person.save().then(savedPerson => {
     response.json(savedPerson)
   })
-  .catch(error => next(error))
+    .catch(error => next(error))
 })
 
 app.put('/api/persons/:id', (request, response, next) => {
@@ -122,9 +123,9 @@ const errorHandler = (error, request, response, next) => {
 
   if (error.name === 'CastError') {
     return response.status(400).json({ error: 'malformatted id' })
-  } 
+  }
   if (error.name === 'ValidationError') {
-    return response.status(400).json({error: 'Contact information not valid'})
+    return response.status(400).json({ error: 'Contact information not valid' })
   }
 
   next(error)
